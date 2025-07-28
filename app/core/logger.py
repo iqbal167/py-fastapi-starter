@@ -1,5 +1,5 @@
 import logging
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger import json as jsonlogger
 
 logging.getLogger("uvicorn.error").name = "app.uvicorn"
 
