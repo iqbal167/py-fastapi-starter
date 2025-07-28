@@ -1,7 +1,15 @@
 # Builder
 FROM python:3.11-alpine AS builder
 
-RUN apk add --no-cache curl gcc musl-dev libffi-dev
+# Install build dependencies
+RUN apk add --no-cache \
+    curl \
+    gcc \
+    g++ \
+    musl-dev \
+    linux-headers \
+    libffi-dev \
+    make
 
 WORKDIR /app
 
@@ -9,22 +17,21 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.0 /uv /uvx /bin/
 
 RUN uv venv
 
-COPY pyproject.toml uv.lock ./
-
-ENV UV_COMPILE_BYTECODE=1
-
-ENV UV_LINK_MODE=copy
+COPY pyproject.toml ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen
+    uv pip install -e .
 
 
 # Runtime
 FROM python:3.11-alpine AS runtime
 
-WORKDIR /app
+# Install runtime dependencies
+RUN apk add --no-cache \
+    libffi \
+    libstdc++
 
-RUN apk add --no-cache libffi
+WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 
