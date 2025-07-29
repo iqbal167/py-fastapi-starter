@@ -10,25 +10,34 @@ processors:
   batch:
     timeout: 1s
     send_batch_size: 1024
+  
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 128
+    check_interval: 1s
 
 exporters:
-  otlphttp:
-    endpoint: http://jaeger:4318
+  # Use OTLP exporter to send to Jaeger
+  otlp:
+    endpoint: jaeger:4317
     tls:
       insecure: true
-    sending_queue:
-      enabled: true
-      num_consumers: 10
-      queue_size: 5000
-    retry_on_failure:
-      enabled: true
-      initial_interval: 5s
-      max_interval: 30s
-      max_elapsed_time: 300s
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
 
 service:
+  extensions: [health_check]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [otlphttp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp]
+  
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: basic
