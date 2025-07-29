@@ -74,6 +74,16 @@ logs:
 	@echo "📋 Recent logs:"
 	@docker compose logs --tail=50
 
+# Observability URLs
+urls:
+	@echo "🌐 Observability Stack URLs:"
+	@echo "📱 API: http://localhost:8000"
+	@echo "🔍 API Health: http://localhost:8000/health"
+	@echo "📊 Jaeger UI: http://localhost:16686"
+	@echo "📈 Grafana: http://localhost:3000 (admin/admin)"
+	@echo "📋 Loki API: http://localhost:3100"
+	@echo "🔧 Fluent Bit: http://localhost:2020"
+
 # Cleanup
 clean:
 	@echo "🧹 Cleaning up Docker resources..."
@@ -88,15 +98,18 @@ clean-all:
 # Complete deployment workflow
 deploy: compose
 	@echo "⏳ Waiting for services to be ready..."
-	@sleep 15
+	@sleep 20
 	@make health
 	@echo ""
 	@echo "🎉 Production environment is ready!"
 	@echo "📱 API: http://localhost:8000"
 	@echo "🔍 API Health: http://localhost:8000/health"
 	@echo "📊 Jaeger UI: http://localhost:16686"
+	@echo "📈 Grafana: http://localhost:3000 (admin/admin)"
+	@echo "📋 Loki API: http://localhost:3100"
 	@echo ""
 	@echo "📋 Useful commands:"
+	@echo "   make urls           - Show all service URLs"
 	@echo "   make logs           - View recent logs"
 	@echo "   make logs-api       - Follow API logs"
 	@echo "   make status         - Check container status"
@@ -153,11 +166,15 @@ info:
 	@echo "   make compose-down    - Stop containers"
 	@echo "   make compose-restart - Restart containers"
 	@echo ""
-	@echo "📊 Monitoring:"
+	@echo "📊 Monitoring & Observability:"
+	@echo "   make urls            - Show all service URLs"
 	@echo "   make health          - Check application health"
 	@echo "   make status          - Check container status"
 	@echo "   make logs            - View recent logs"
 	@echo "   make logs-api        - Follow API logs"
+	@echo "   make logs-fluent-bit - Follow Fluent Bit logs"
+	@echo "   make logs-loki       - Follow Loki logs"
+	@echo "   make logs-grafana    - Follow Grafana logs"
 	@echo ""
 	@echo "🔨 Docker Build:"
 	@echo "   make docker-build    - Build production image"

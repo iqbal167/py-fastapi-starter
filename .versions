@@ -1,0 +1,18 @@
+# Service Versions - Quick Reference
+# Updated: 2025-01-29
+
+# Observability Stack
+GRAFANA_VERSION=10.4.2
+LOKI_VERSION=3.0.0
+FLUENT_BIT_VERSION=3.0.7
+JAEGER_VERSION=1.57.0
+OTEL_COLLECTOR_VERSION=0.100.0
+
+# Version Selection Rationale:
+# - Grafana 10.4.2: LTS version with stable Loki integration
+# - Loki 3.0.0: Major stable release with performance improvements
+# - Fluent Bit 3.0.7: Latest stable with Loki output plugin fixes
+# - Jaeger 1.57.0: Stable with full OTLP support
+# - OTEL Collector 0.100.0: Stable contrib with all processors
+
+# For detailed version information, see docs/VERSIONS.md

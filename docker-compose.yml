@@ -37,6 +37,7 @@ services:
     depends_on:
       - jaeger
       - otel-collector
+      - loki
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -44,6 +45,12 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: fastapi.api
+        fluentd-async: "true"
     deploy:
       resources:
         limits:
@@ -54,7 +61,7 @@ services:
           memory: 256M
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.57.0
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
@@ -76,7 +83,7 @@ services:
           memory: 256M
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.100.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./scripts/opentelemetry/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
@@ -94,6 +101,82 @@ services:
           cpus: '0.5'
           memory: 256M
 
+  # Fluent Bit for log collection
+  fluent-bit:
+    image: fluent/fluent-bit:3.0.7
+    ports:
+      - "24224:24224"  # Forward input
+      - "24224:24224/udp"
+    volumes:
+      - ./scripts/logging/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./scripts/logging/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 128M
+
+  # Loki for log storage
+  loki:
+    image: grafana/loki:3.0.0
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./scripts/logging/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Grafana for log visualization
+  grafana:
+    image: grafana/grafana:10.4.2
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./scripts/logging/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ./scripts/logging/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./scripts/logging/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
 networks:
   default:
     name: fastapi-starter-network
+
+volumes:
+  loki-data:
+    driver: local
+  grafana-data:
+    driver: local

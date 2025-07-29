@@ -17,3 +17,6 @@ wheels/
 
 # macOS
 .DS_Store
+
+# Documentation
+docs/

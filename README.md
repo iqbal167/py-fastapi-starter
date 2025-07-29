@@ -17,7 +17,14 @@ A production-ready FastAPI-based Python backend starter template with complete o
 
 ```
 FastAPI App → OTEL Collector → Jaeger → Jaeger UI
+     ↓
+  Fluent Bit → Loki → Grafana
 ```
+
+Complete observability stack with:
+- **Distributed Tracing**: OpenTelemetry → Jaeger
+- **Centralized Logging**: Fluent Bit → Loki → Grafana
+- **Metrics & Visualization**: Grafana dashboards
 
 ## Requirements
 
@@ -126,14 +133,35 @@ make deploy
 - Resource limits and restart policies
 
 ### Jaeger UI (Port 16686)
+- **Version**: 1.57.0 (stable)
 - Distributed tracing visualization
 - Performance monitoring and debugging
 - Request flow analysis
 
 ### OTEL Collector (Ports 14317, 14318)
+- **Version**: 0.100.0 (stable contrib)
 - OpenTelemetry data collection and processing
 - Trace aggregation and forwarding
 - Memory limiting and batch processing
+
+### Grafana (Port 3000)
+- **Version**: 10.4.2 (LTS)
+- Log visualization and dashboards
+- Integrated with Loki for log queries
+- Connected to Jaeger for trace correlation
+- Default credentials: admin/admin
+
+### Loki (Port 3100)
+- **Version**: 3.0.0 (stable)
+- Log aggregation and storage
+- Efficient log indexing and querying
+- Integration with Grafana for visualization
+
+### Fluent Bit (Port 24224)
+- **Version**: 3.0.7 (stable)
+- Log collection from Docker containers
+- Log parsing and enrichment
+- Forwarding logs to Loki
 
 ## Endpoints
 
@@ -155,6 +183,23 @@ curl http://localhost:8000/
 curl http://localhost:8000/health
 ```
 
+### Logging
+Centralized logging with Fluent Bit → Loki → Grafana:
+```bash
+# Access Grafana for log visualization
+open http://localhost:3000
+# Default credentials: admin/admin
+
+# Query logs directly from Loki
+curl "http://localhost:3100/loki/api/v1/query_range?query={job=\"fluentbit\"}"
+
+# View logs by service
+make logs-api        # API logs
+make logs-fluent-bit # Fluent Bit logs
+make logs-loki       # Loki logs
+make logs-grafana    # Grafana logs
+```
+
 ### Health Monitoring
 ```bash
 # Check application health
@@ -165,18 +210,9 @@ make health-detailed
 
 # Check all container status
 make status
-```
 
-### Logging
-```bash
-# View application logs
-make logs-api
-
-# View all service logs
-make logs
-
-# Follow logs in real-time
-docker compose logs -f api
+# Show all service URLs
+make urls
 ```
 
 ## Security Features
