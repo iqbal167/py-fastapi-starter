@@ -89,7 +89,6 @@ make compose         # Start production containers
 make compose-down    # Stop containers
 make health          # Check application health
 make logs            # View container logs
-make logs-api        # Follow API logs specifically
 ```
 
 ### Docker Operations
@@ -304,7 +303,7 @@ make lint             # Check code quality
 # Test production build
 make deploy           # Test production deployment
 make health           # Verify deployment
-make logs-api         # Monitor API logs
+make logs             # Monitor logs
 make compose-down     # Stop containers
 ```
 
@@ -337,7 +336,7 @@ open http://localhost:16686     # Jaeger
 open http://localhost:3000      # Grafana
 
 # Monitor logs
-make logs-api
+make logs
 ```
 
 ### Security Checklist
@@ -406,12 +405,6 @@ make status
 # View all logs
 make logs
 
-# View specific service logs
-make logs-api        # API logs
-make logs-fluent-bit # Fluent Bit logs
-make logs-loki       # Loki logs
-make logs-grafana    # Grafana logs
-
 # Restart services
 make compose-down && make deploy
 ```
@@ -442,7 +435,7 @@ docker compose logs fluent-bit
 ### Application Issues
 ```bash
 # Check application logs
-make logs-api
+make logs
 
 # Test configuration
 curl http://localhost:8000/settings
@@ -465,7 +458,6 @@ docker compose exec api env | grep -E "(APP_|OTEL_|DEBUG)"
 ## Documentation
 
 - [API Documentation](http://localhost:8000/docs) - Interactive API docs (when running)
-- [LogQL Queries](grafana-queries.txt) - Ready-to-use LogQL queries
 
 ## Package Information
 
