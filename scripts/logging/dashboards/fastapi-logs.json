@@ -91,7 +91,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"fluentbit\", service=\"fastapi-starter\"} |= \"ERROR\" [5m])) by (container_name)",
+          "expr": "sum(rate({job=\"fluentbit\", service=\"fastapi-backend\"} |= \"ERROR\" [5m])) by (container_name)",
           "refId": "A",
           "legendFormat": "Error Rate"
         }
@@ -172,7 +172,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"fluentbit\", service=\"fastapi-starter\"} [5m])) by (container_name)",
+          "expr": "sum(rate({job=\"fluentbit\", service=\"fastapi-backend\"} [5m])) by (container_name)",
           "refId": "A",
           "legendFormat": "Log Rate"
         }
@@ -225,7 +225,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "{job=\"fluentbit\", service=\"fastapi-starter\"}",
+          "expr": "{job=\"fluentbit\", service=\"fastapi-backend\"}",
           "refId": "A"
         }
       ],
@@ -235,7 +235,7 @@
   ],
   "schemaVersion": 27,
   "style": "dark",
-  "tags": ["fastapi", "logs"],
+  "tags": ["fastapi", "backend", "logs"],
   "templating": {
     "list": []
   },
@@ -245,7 +245,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "FastAPI Application Logs",
-  "uid": "fastapi-logs",
+  "title": "FastAPI Backend Logs",
+  "uid": "fastapi-backend-logs",
   "version": 1
 }

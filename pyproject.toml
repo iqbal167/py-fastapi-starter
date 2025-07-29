@@ -1,5 +1,5 @@
 [project]
-name = "py-fastapi-starter"
+name = "py-fastapi-backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"

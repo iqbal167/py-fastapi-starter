@@ -7,7 +7,7 @@ def test_settings_default_values():
     # Create settings without loading from .env file
     settings = Settings(_env_file=None)
 
-    assert settings.app_name == "FastAPI Starter"
+    assert settings.app_name == "FastAPI Backend"
     assert settings.app_version == "0.1.0"
     assert settings.debug is False
     assert settings.environment == "development"
@@ -20,7 +20,7 @@ def test_settings_default_values():
     assert settings.database_url == "sqlite:///./app.db"
     assert settings.database_echo is False
     assert settings.otel_exporter_otlp_endpoint == "http://localhost:14317"
-    assert settings.otel_service_name == "fastapi-starter"
+    assert settings.otel_service_name == "fastapi-backend"
     assert settings.otel_service_version == "0.1.0"
     assert settings.log_level == "INFO"
 

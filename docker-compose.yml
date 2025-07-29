@@ -28,7 +28,7 @@ services:
       
       # OpenTelemetry
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-fastapi-starter}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-fastapi-backend}
       - OTEL_SERVICE_VERSION=${OTEL_SERVICE_VERSION:-1.0.0}
       
       # External services (optional)
@@ -49,7 +49,7 @@ services:
       driver: "fluentd"
       options:
         fluentd-address: localhost:24224
-        tag: fastapi.api
+        tag: fastapi.backend
         fluentd-async: "true"
     deploy:
       resources:
@@ -173,7 +173,7 @@ services:
 
 networks:
   default:
-    name: fastapi-starter-network
+    name: fastapi-backend-network
 
 volumes:
   loki-data:

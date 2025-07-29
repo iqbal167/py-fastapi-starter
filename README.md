@@ -1,6 +1,6 @@
-# Python Backend Starter
+# Python FastAPI Backend
 
-A production-ready FastAPI-based Python backend starter template with complete observability stack and modern Python tooling.
+A production-ready FastAPI-based Python backend template with complete observability stack and modern Python tooling.
 
 ## Features
 
@@ -16,7 +16,7 @@ A production-ready FastAPI-based Python backend starter template with complete o
 ## Architecture
 
 ```
-FastAPI App → OTEL Collector → Jaeger → Jaeger UI
+FastAPI Backend → OTEL Collector → Jaeger → Jaeger UI
      ↓
   Fluent Bit → Loki → Grafana
 ```
@@ -127,7 +127,7 @@ make deploy
 ## Services
 
 ### API Service (Port 8000)
-- FastAPI application with complete observability
+- FastAPI backend with complete observability
 - Health checks and monitoring endpoints
 - Security hardening with non-root user
 - Resource limits and restart policies
@@ -374,4 +374,4 @@ This project is licensed under the MIT License.
 
 ---
 
-**Production-ready FastAPI starter with complete observability! 🚀**
+**Production-ready FastAPI backend with complete observability! 🚀**

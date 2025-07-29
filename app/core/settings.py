@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # Application Configuration
-    app_name: str = Field(default="FastAPI Starter", description="Application name")
+    app_name: str = Field(default="FastAPI Backend", description="Application name")
     app_version: str = Field(default="0.1.0", description="Application version")
     debug: bool = Field(default=False, description="Debug mode")
     environment: str = Field(
@@ -59,7 +59,7 @@ class Settings(BaseSettings):
         default="http://localhost:14317", description="OpenTelemetry OTLP endpoint"
     )
     otel_service_name: str = Field(
-        default="fastapi-starter", description="OpenTelemetry service name"
+        default="fastapi-backend", description="OpenTelemetry service name"
     )
     otel_service_version: str = Field(
         default="0.1.0", description="OpenTelemetry service version"

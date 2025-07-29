@@ -50,11 +50,11 @@ compose-restart:
 # Docker build
 docker-build:
 	@echo "🔨 Building production Docker image..."
-	@docker build -t fastapi-starter:latest .
+	@docker build -t fastapi-backend:latest .
 
 docker-run:
 	@echo "🐳 Running production container..."
-	@docker run -p 8000:8000 --env-file .env fastapi-starter:latest
+	@docker run -p 8000:8000 --env-file .env fastapi-backend:latest
 
 # Health checks
 health:
@@ -147,7 +147,7 @@ check-security:
 
 # Information
 info:
-	@echo "📋 FastAPI Starter - Production Ready Commands:"
+	@echo "📋 FastAPI Backend - Production Ready Commands:"
 	@echo ""
 	@echo "🛠️  Local Development:"
 	@echo "   make run             - Run locally with Python"
