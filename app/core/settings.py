@@ -76,6 +76,11 @@ class Settings(BaseSettings):
         default=None, description="External API key"
     )
 
+    # Google Gemini Configuration
+    gemini_api_key: Optional[str] = Field(
+        default=None, description="Google Gemini API key"
+    )
+
     # Computed properties for CORS (not from env vars)
     @property
     def allowed_hosts(self) -> List[str]:
