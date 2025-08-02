@@ -71,8 +71,8 @@ def adk_status(settings: Settings = Depends(get_settings)):
         return {
             "available": agent is not None,
             "api_key_configured": api_key is not None,
-            "agent_name": agent.config.name if agent else None,
-            "model": agent.config.model if agent else None
+            "agent_name": "FastAPI Observability Agent" if agent else None,
+            "model": "gemini-1.5-flash" if agent else None
         }
 
 
@@ -95,12 +95,11 @@ async def chat_with_agent(
             # Convert Pydantic models to the format expected by the agent
             conversation_history = None
             if request.conversation_history:
-                from google.adk.types import Message, MessageRole
                 conversation_history = [
-                    Message(
-                        role=MessageRole.USER if msg.role.lower() == "user" else MessageRole.ASSISTANT,
-                        content=msg.content
-                    )
+                    {
+                        "role": msg.role,
+                        "content": msg.content
+                    }
                     for msg in request.conversation_history
                 ]
             

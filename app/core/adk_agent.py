@@ -7,8 +7,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import asyncio
 
-from google.adk import Agent, AgentConfig, Tool, ToolResult
-from google.adk.types import Message, MessageRole
+from google.adk import Agent
+from google.adk.tools import BaseTool, FunctionTool
 from opentelemetry import trace
 from app.core.settings import settings
 
@@ -16,57 +16,36 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
-class HealthCheckTool(Tool):
-    """Tool for performing health checks on the system."""
+async def health_check_function(component: str = "all") -> Dict[str, Any]:
+    """Perform comprehensive health check on the FastAPI system.
     
-    def __init__(self):
-        super().__init__(
-            name="health_check",
-            description="Perform comprehensive health check on the FastAPI system",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "component": {
-                        "type": "string",
-                        "description": "Specific component to check (api, database, tracing, logging, all)",
-                        "enum": ["api", "database", "tracing", "logging", "all"]
-                    }
-                },
-                "required": ["component"]
-            }
-        )
+    Args:
+        component: Specific component to check (api, database, tracing, logging, all)
     
-    async def execute(self, parameters: Dict[str, Any]) -> ToolResult:
-        """Execute health check based on component parameter."""
-        with tracer.start_as_current_span("adk_health_check"):
-            component = parameters.get("component", "all")
+    Returns:
+        Dictionary containing health check results
+    """
+    with tracer.start_as_current_span("adk_health_check"):
+        try:
+            if component == "all":
+                result = await _check_all_components()
+            elif component == "api":
+                result = await _check_api_health()
+            elif component == "database":
+                result = await _check_database_health()
+            elif component == "tracing":
+                result = await _check_tracing_health()
+            elif component == "logging":
+                result = await _check_logging_health()
+            else:
+                result = {"error": f"Unknown component: {component}"}
             
-            try:
-                if component == "all":
-                    result = await self._check_all_components()
-                elif component == "api":
-                    result = await self._check_api_health()
-                elif component == "database":
-                    result = await self._check_database_health()
-                elif component == "tracing":
-                    result = await self._check_tracing_health()
-                elif component == "logging":
-                    result = await self._check_logging_health()
-                else:
-                    result = {"error": f"Unknown component: {component}"}
-                
-                return ToolResult(
-                    success=True,
-                    content=json.dumps(result, indent=2)
-                )
-            except Exception as e:
-                logger.error(f"Health check failed: {e}")
-                return ToolResult(
-                    success=False,
-                    content=f"Health check failed: {str(e)}"
-                )
-    
-    async def _check_all_components(self) -> Dict[str, Any]:
+            return result
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return {"error": f"Health check failed: {str(e)}"}
+
+async def _check_all_components() -> Dict[str, Any]:
         """Check all system components."""
         results = {
             "timestamp": datetime.now().isoformat(),
@@ -75,19 +54,19 @@ class HealthCheckTool(Tool):
         }
         
         # Check API
-        api_result = await self._check_api_health()
+        api_result = await _check_api_health()
         results["components"]["api"] = api_result
         
         # Check database
-        db_result = await self._check_database_health()
+        db_result = await _check_database_health()
         results["components"]["database"] = db_result
         
         # Check tracing
-        tracing_result = await self._check_tracing_health()
+        tracing_result = await _check_tracing_health()
         results["components"]["tracing"] = tracing_result
         
         # Check logging
-        logging_result = await self._check_logging_health()
+        logging_result = await _check_logging_health()
         results["components"]["logging"] = logging_result
         
         # Determine overall status
@@ -101,8 +80,8 @@ class HealthCheckTool(Tool):
             results["unhealthy_components"] = unhealthy_components
         
         return results
-    
-    async def _check_api_health(self) -> Dict[str, Any]:
+
+async def _check_api_health() -> Dict[str, Any]:
         """Check API health."""
         try:
             import httpx
@@ -125,8 +104,7 @@ class HealthCheckTool(Tool):
                 "status": "unhealthy",
                 "error": str(e)
             }
-    
-    async def _check_database_health(self) -> Dict[str, Any]:
+async def _check_database_health() -> Dict[str, Any]:
         """Check database health."""
         # For SQLite, just check if file exists and is accessible
         try:
@@ -151,8 +129,7 @@ class HealthCheckTool(Tool):
                 "status": "unhealthy",
                 "error": str(e)
             }
-    
-    async def _check_tracing_health(self) -> Dict[str, Any]:
+async def _check_tracing_health() -> Dict[str, Any]:
         """Check OpenTelemetry tracing health."""
         try:
             # Check if OTEL collector is reachable
@@ -179,8 +156,7 @@ class HealthCheckTool(Tool):
                 "error": str(e),
                 "note": "OTEL collector not reachable, traces may not be exported"
             }
-    
-    async def _check_logging_health(self) -> Dict[str, Any]:
+async def _check_logging_health() -> Dict[str, Any]:
         """Check logging system health."""
         try:
             # Test if we can write to log
@@ -199,154 +175,127 @@ class HealthCheckTool(Tool):
             }
 
 
-class SystemMetricsTool(Tool):
-    """Tool for getting system metrics and performance data."""
+async def system_metrics_function(metric_type: str = "all") -> Dict[str, Any]:
+    """Get system metrics including CPU, memory, and application performance.
     
-    def __init__(self):
-        super().__init__(
-            name="system_metrics",
-            description="Get system metrics including CPU, memory, and application performance",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "metric_type": {
-                        "type": "string",
-                        "description": "Type of metrics to retrieve",
-                        "enum": ["system", "application", "all"]
-                    }
-                },
-                "required": ["metric_type"]
-            }
-        )
+    Args:
+        metric_type: Type of metrics to retrieve (system, application, all)
     
-    async def execute(self, parameters: Dict[str, Any]) -> ToolResult:
-        """Execute system metrics collection."""
-        with tracer.start_as_current_span("adk_system_metrics"):
-            metric_type = parameters.get("metric_type", "all")
+    Returns:
+        Dictionary containing system metrics
+    """
+    with tracer.start_as_current_span("adk_system_metrics"):
+        try:
+            import psutil
+            import os
             
-            try:
-                import psutil
-                import os
-                
-                metrics = {
-                    "timestamp": datetime.now().isoformat(),
-                    "metric_type": metric_type
-                }
-                
-                if metric_type in ["system", "all"]:
-                    metrics["system"] = {
-                        "cpu_percent": psutil.cpu_percent(interval=1),
-                        "memory": {
-                            "total": psutil.virtual_memory().total,
-                            "available": psutil.virtual_memory().available,
-                            "percent": psutil.virtual_memory().percent
-                        },
-                        "disk": {
-                            "total": psutil.disk_usage('/').total,
-                            "free": psutil.disk_usage('/').free,
-                            "percent": psutil.disk_usage('/').percent
-                        }
-                    }
-                
-                if metric_type in ["application", "all"]:
-                    process = psutil.Process(os.getpid())
-                    metrics["application"] = {
-                        "pid": os.getpid(),
-                        "cpu_percent": process.cpu_percent(),
-                        "memory_info": {
-                            "rss": process.memory_info().rss,
-                            "vms": process.memory_info().vms
-                        },
-                        "num_threads": process.num_threads(),
-                        "create_time": process.create_time()
-                    }
-                
-                return ToolResult(
-                    success=True,
-                    content=json.dumps(metrics, indent=2)
-                )
-            except ImportError:
-                return ToolResult(
-                    success=False,
-                    content="psutil not installed. Install with: pip install psutil"
-                )
-            except Exception as e:
-                logger.error(f"System metrics collection failed: {e}")
-                return ToolResult(
-                    success=False,
-                    content=f"Metrics collection failed: {str(e)}"
-                )
-
-
-class LogQueryTool(Tool):
-    """Tool for querying application logs."""
-    
-    def __init__(self):
-        super().__init__(
-            name="query_logs",
-            description="Query application logs with filters",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "level": {
-                        "type": "string",
-                        "description": "Log level to filter",
-                        "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum number of log entries to return",
-                        "default": 10
-                    },
-                    "search": {
-                        "type": "string",
-                        "description": "Search term to filter logs"
-                    }
-                }
+            metrics = {
+                "timestamp": datetime.now().isoformat(),
+                "metric_type": metric_type
             }
-        )
-    
-    async def execute(self, parameters: Dict[str, Any]) -> ToolResult:
-        """Execute log query."""
-        with tracer.start_as_current_span("adk_query_logs"):
-            try:
-                # This is a simplified implementation
-                # In a real scenario, you'd query your log storage (Loki, etc.)
-                logs = {
-                    "timestamp": datetime.now().isoformat(),
-                    "query_parameters": parameters,
-                    "logs": [
-                        {
-                            "timestamp": datetime.now().isoformat(),
-                            "level": "INFO",
-                            "message": "Sample log entry for demonstration",
-                            "service": settings.otel_service_name
-                        }
-                    ],
-                    "note": "This is a simplified implementation. In production, integrate with your log storage system."
+            
+            if metric_type in ["system", "all"]:
+                metrics["system"] = {
+                    "cpu_percent": psutil.cpu_percent(interval=1),
+                    "memory": {
+                        "total": psutil.virtual_memory().total,
+                        "available": psutil.virtual_memory().available,
+                        "percent": psutil.virtual_memory().percent
+                    },
+                    "disk": {
+                        "total": psutil.disk_usage('/').total,
+                        "free": psutil.disk_usage('/').free,
+                        "percent": psutil.disk_usage('/').percent
+                    }
                 }
-                
-                return ToolResult(
-                    success=True,
-                    content=json.dumps(logs, indent=2)
-                )
-            except Exception as e:
-                logger.error(f"Log query failed: {e}")
-                return ToolResult(
-                    success=False,
-                    content=f"Log query failed: {str(e)}"
-                )
+            
+            if metric_type in ["application", "all"]:
+                process = psutil.Process(os.getpid())
+                metrics["application"] = {
+                    "pid": os.getpid(),
+                    "cpu_percent": process.cpu_percent(),
+                    "memory_info": {
+                        "rss": process.memory_info().rss,
+                        "vms": process.memory_info().vms
+                    },
+                    "num_threads": process.num_threads(),
+                    "create_time": process.create_time()
+                }
+            
+            return metrics
+        except ImportError:
+            return {"error": "psutil not installed. Install with: pip install psutil"}
+        except Exception as e:
+            logger.error(f"System metrics collection failed: {e}")
+            return {"error": f"Metrics collection failed: {str(e)}"}
+
+
+async def query_logs_function(level: Optional[str] = None, limit: int = 10, search: Optional[str] = None) -> Dict[str, Any]:
+    """Query application logs with filters.
+    
+    Args:
+        level: Log level to filter (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        limit: Maximum number of log entries to return
+        search: Search term to filter logs
+    
+    Returns:
+        Dictionary containing log query results
+    """
+    with tracer.start_as_current_span("adk_query_logs"):
+        try:
+            # This is a simplified implementation
+            # In a real scenario, you'd query your log storage (Loki, etc.)
+            query_params = {"level": level, "limit": limit, "search": search}
+            logs = {
+                "timestamp": datetime.now().isoformat(),
+                "query_parameters": query_params,
+                "logs": [
+                    {
+                        "timestamp": datetime.now().isoformat(),
+                        "level": "INFO",
+                        "message": "Sample log entry for demonstration",
+                        "service": settings.otel_service_name
+                    }
+                ],
+                "note": "This is a simplified implementation. In production, integrate with your log storage system."
+            }
+            
+            return logs
+        except Exception as e:
+            logger.error(f"Log query failed: {e}")
+            return {"error": f"Log query failed: {str(e)}"}
 
 
 class ObservabilityAgent:
     """Google ADK Agent for system observability and health monitoring."""
     
     def __init__(self, api_key: str):
-        self.config = AgentConfig(
+        # Create function tools
+        health_check_tool = FunctionTool(
+            name="health_check",
+            description="Perform comprehensive health check on the FastAPI system",
+            func=health_check_function
+        )
+        
+        system_metrics_tool = FunctionTool(
+            name="system_metrics", 
+            description="Get system metrics including CPU, memory, and application performance",
+            func=system_metrics_function
+        )
+        
+        query_logs_tool = FunctionTool(
+            name="query_logs",
+            description="Query application logs with filters",
+            func=query_logs_function
+        )
+        
+        self.tools = [health_check_tool, system_metrics_tool, query_logs_tool]
+        
+        # Create agent with tools
+        self.agent = Agent(
             name="FastAPI Observability Agent",
-            description="An AI agent that helps monitor and troubleshoot your FastAPI application",
             model="gemini-1.5-flash",
-            api_key=api_key,
+            tools=self.tools,
             system_instruction="""
             You are an expert observability and monitoring agent for a FastAPI application.
             
@@ -369,27 +318,14 @@ class ObservabilityAgent:
             Be concise but thorough in your responses.
             """
         )
-        
-        self.tools = [
-            HealthCheckTool(),
-            SystemMetricsTool(),
-            LogQueryTool()
-        ]
-        
-        self.agent = Agent(
-            config=self.config,
-            tools=self.tools
-        )
     
-    async def chat(self, message: str, conversation_history: Optional[List[Message]] = None) -> str:
+    async def chat(self, message: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
         """Chat with the observability agent."""
         with tracer.start_as_current_span("adk_agent_chat"):
             try:
-                messages = conversation_history or []
-                messages.append(Message(role=MessageRole.USER, content=message))
-                
-                response = await self.agent.generate_response(messages)
-                return response.content
+                # Use the agent's run_async method
+                response = await self.agent.run_async(message)
+                return response
             except Exception as e:
                 logger.error(f"ADK agent chat failed: {e}")
                 return f"Sorry, I encountered an error: {str(e)}"
@@ -397,24 +333,12 @@ class ObservabilityAgent:
     async def perform_health_check(self) -> Dict[str, Any]:
         """Perform a comprehensive health check."""
         with tracer.start_as_current_span("adk_agent_health_check"):
-            health_tool = HealthCheckTool()
-            result = await health_tool.execute({"component": "all"})
-            
-            if result.success:
-                return json.loads(result.content)
-            else:
-                return {"error": result.content}
+            return await health_check_function("all")
     
     async def get_system_metrics(self) -> Dict[str, Any]:
         """Get current system metrics."""
         with tracer.start_as_current_span("adk_agent_metrics"):
-            metrics_tool = SystemMetricsTool()
-            result = await metrics_tool.execute({"metric_type": "all"})
-            
-            if result.success:
-                return json.loads(result.content)
-            else:
-                return {"error": result.content}
+            return await system_metrics_function("all")
 
 
 def create_observability_agent(api_key: str) -> Optional[ObservabilityAgent]:
