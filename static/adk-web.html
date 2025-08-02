@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google ADK Observability Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #4285f4;
+            padding-bottom: 10px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-healthy { background-color: #34a853; }
+        .status-degraded { background-color: #fbbc04; }
+        .status-unhealthy { background-color: #ea4335; }
+        .status-unknown { background-color: #9aa0a6; }
+
+        .chat-container {
+            grid-column: 1 / -1;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+        }
+
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+
+        .message.user {
+            background: #e3f2fd;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.agent {
+            background: #f1f8e9;
+        }
+
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #4285f4;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3367d6;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #34a853;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #2d7d32;
+            transform: translateY(-2px);
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4285f4;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #4285f4;
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #f44336;
+        }
+
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #4caf50;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 20px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Google ADK Observability Dashboard</h1>
+            <p>AI-Powered System Monitoring & Health Check</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Status Panel -->
+            <div class="panel">
+                <h2>🔍 System Status</h2>
+                <div id="status-content">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading status...
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-success" onclick="checkHealth()">🏥 Health Check</button>
+                    <button class="btn btn-info" onclick="getMetrics()">📊 Get Metrics</button>
+                </div>
+            </div>
+
+            <!-- Quick Actions Panel -->
+            <div class="panel">
+                <h2>⚡ Quick Actions</h2>
+                <div class="quick-actions">
+                    <button class="btn btn-primary" onclick="quickChat('What is the current health status?')">Health Status</button>
+                    <button class="btn btn-primary" onclick="quickChat('Check system performance')">Performance</button>
+                    <button class="btn btn-primary" onclick="quickChat('Are there any issues?')">Issues Check</button>
+                    <button class="btn btn-primary" onclick="quickChat('Show memory usage')">Memory Usage</button>
+                </div>
+                <div id="metrics-display"></div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="chat-container">
+                <h2>💬 Chat with ADK Agent</h2>
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message agent">
+                        <div class="message-header">🤖 ADK Agent</div>
+                        <div>Hello! I'm your observability agent. I can help you monitor your FastAPI system, check health status, analyze metrics, and troubleshoot issues. What would you like to know?</div>
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Ask me about your system health, performance, or any issues..." onkeypress="handleKeyPress(event)">
+                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1/adk';
+        let conversationHistory = [];
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            checkADKStatus();
+        });
+
+        async function checkADKStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+                
+                const statusContent = document.getElementById('status-content');
+                if (data.available) {
+                    statusContent.innerHTML = `
+                        <div class="success">
+                            <span class="status-indicator status-healthy"></span>
+                            <strong>ADK Agent Available</strong><br>
+                            Agent: ${data.agent_name}<br>
+                            Model: ${data.model}
+                        </div>
+                    `;
+                } else {
+                    statusContent.innerHTML = `
+                        <div class="error">
+                            <span class="status-indicator status-unhealthy"></span>
+                            <strong>ADK Agent Unavailable</strong><br>
+                            Please check your API key configuration.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error checking ADK status:', error);
+                document.getElementById('status-content').innerHTML = `
+                    <div class="error">
+                        <span class="status-indicator status-unhealthy"></span>
+                        <strong>Connection Error</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function checkHealth() {
+            const statusContent = document.getElementById('status-content');
+            statusContent.innerHTML = '<div class="loading"><div class="spinner"></div>Checking health...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health-check`);
+                const data = await response.json();
+                
+                let html = `<div class="success">
+                    <span class="status-indicator status-${data.overall_status === 'healthy' ? 'healthy' : 'degraded'}"></span>
+                    <strong>Overall Status: ${data.overall_status.toUpperCase()}</strong>
+                </div>`;
+                
+                html += '<div class="metrics-grid">';
+                for (const [component, details] of Object.entries(data.components)) {
+                    const status = details.status || 'unknown';
+                    html += `
+                        <div class="metric-card">
+                            <div class="metric-value">
+                                <span class="status-indicator status-${status}"></span>
+                                ${status.toUpperCase()}
+                            </div>
+                            <div class="metric-label">${component}</div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                
+                statusContent.innerHTML = html;
+            } catch (error) {
+                console.error('Error checking health:', error);
+                statusContent.innerHTML = `<div class="error">Health check failed: ${error.message}</div>`;
+            }
+        }
+
+        async function getMetrics() {
+            const metricsDisplay = document.getElementById('metrics-display');
+            metricsDisplay.innerHTML = '<div class="loading"><div class="spinner"></div>Loading metrics...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/metrics`);
+                const data = await response.json();
+                
+                let html = '<div class="metrics-grid">';
+                
+                if (data.system) {
+                    html += `
+                        <div class="metric-card">
+                            <div class="metric-value">${data.system.cpu_percent.toFixed(1)}%</div>
+                            <div class="metric-label">CPU Usage</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">${data.system.memory.percent.toFixed(1)}%</div>
+                            <div class="metric-label">Memory Usage</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">${data.system.disk.percent.toFixed(1)}%</div>
+                            <div class="metric-label">Disk Usage</div>
+                        </div>
+                    `;
+                }
+                
+                if (data.application) {
+                    html += `
+                        <div class="metric-card">
+                            <div class="metric-value">${data.application.num_threads}</div>
+                            <div class="metric-label">Threads</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">${(data.application.memory_info.rss / 1024 / 1024).toFixed(1)}MB</div>
+                            <div class="metric-label">App Memory</div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                metricsDisplay.innerHTML = html;
+            } catch (error) {
+                console.error('Error getting metrics:', error);
+                metricsDisplay.innerHTML = `<div class="error">Metrics collection failed: ${error.message}</div>`;
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessageToChat('user', message);
+            input.value = '';
+            
+            // Add loading message
+            const loadingId = addMessageToChat('agent', '<div class="loading"><div class="spinner"></div>Thinking...</div>');
+            
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_history: conversationHistory
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Remove loading message and add actual response
+                document.getElementById(loadingId).remove();
+                addMessageToChat('agent', data.response);
+                
+                // Update conversation history
+                conversationHistory.push({role: 'user', content: message});
+                conversationHistory.push({role: 'assistant', content: data.response});
+                
+                // Keep only last 10 messages to avoid token limits
+                if (conversationHistory.length > 10) {
+                    conversationHistory = conversationHistory.slice(-10);
+                }
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                document.getElementById(loadingId).remove();
+                addMessageToChat('agent', `Sorry, I encountered an error: ${error.message}`);
+            }
+        }
+
+        function addMessageToChat(role, content) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageId = 'msg-' + Date.now();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.id = messageId;
+            messageDiv.className = `message ${role}`;
+            messageDiv.innerHTML = `
+                <div class="message-header">${role === 'user' ? '👤 You' : '🤖 ADK Agent'}</div>
+                <div>${content}</div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            return messageId;
+        }
+
+        function quickChat(message) {
+            document.getElementById('chat-input').value = message;
+            sendMessage();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>

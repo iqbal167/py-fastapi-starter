@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from app.core.settings import settings, get_settings, Settings
 from app.core.middleware import LoggingMiddleware, RequestIDMiddleware
@@ -7,6 +9,7 @@ from app.core.tracer import setup_tracer
 from app.core.instrumentation import instrument_fastapi_app
 from app.core.telemetry.tracing import tracer
 from app.core.gemini import get_gemini_service
+from app.api.adk import router as adk_router
 
 # Initialize tracing before creating FastAPI app
 setup_tracer()
@@ -39,6 +42,12 @@ instrument_fastapi_app(app)
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
+# Include routers
+app.include_router(adk_router, prefix=settings.api_v1_prefix)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 @app.get("/")
 def read_root():
@@ -62,6 +71,12 @@ def health_check():
             "version": settings.app_version,
             "environment": settings.environment,
         }
+
+
+@app.get("/adk-web")
+def adk_web_interface():
+    """Serve the ADK web interface."""
+    return FileResponse("static/adk-web.html")
 
 
 @app.get("/settings")

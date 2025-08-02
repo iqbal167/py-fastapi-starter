@@ -81,6 +81,11 @@ class Settings(BaseSettings):
         default=None, description="Google Gemini API key"
     )
 
+    # Google ADK Configuration
+    google_adk_api_key: Optional[str] = Field(
+        default=None, description="Google ADK API key (can use same as Gemini)"
+    )
+
     # Computed properties for CORS (not from env vars)
     @property
     def allowed_hosts(self) -> List[str]:
