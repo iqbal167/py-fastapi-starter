@@ -12,9 +12,14 @@ datasources:
       derivedFields:
         - datasourceUid: jaeger
           matcherRegex: "trace_id=(\\w+)"
-          name: TraceID
-          url: "$${__value.raw}"
-          urlDisplayLabel: "View Trace"
+          name: TraceID (Jaeger)
+          url: "${__value.raw}"
+          urlDisplayLabel: "View in Jaeger"
+        - datasourceUid: tempo
+          matcherRegex: "trace_id=(\\w+)"
+          name: TraceID (Tempo)
+          url: "${__value.raw}"
+          urlDisplayLabel: "View in Tempo"
 
   - name: Jaeger
     type: jaeger
@@ -32,3 +37,26 @@ datasources:
         spanEndTimeShift: '1h'
         filterByTraceID: false
         filterBySpanID: false
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: true
+    jsonData:
+      tracesToLogs:
+        datasourceUid: loki
+        tags: ['job', 'instance', 'pod', 'namespace']
+        mappedTags: [{ key: 'service.name', value: 'service' }]
+        mapTagNamesEnabled: false
+        spanStartTimeShift: '1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: false
+        filterBySpanID: false
+      serviceMap:
+        datasourceUid: prometheus
+      search:
+        hide: false
+      nodeGraph:
+        enabled: true

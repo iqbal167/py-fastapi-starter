@@ -8,7 +8,7 @@ A production-ready FastAPI-based Python backend template with complete observabi
 - [UV](https://github.com/astral-sh/uv) for fast Python package management
 - [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) for configuration management
 - Production-ready Docker setup with complete observability
-- Complete OpenTelemetry integration with Jaeger tracing
+- Complete OpenTelemetry integration with Jaeger & Tempo tracing
 - Centralized logging with Fluent Bit → Loki → Grafana
 - Pytest for testing with comprehensive test coverage
 - Ruff for linting and formatting
@@ -18,12 +18,14 @@ A production-ready FastAPI-based Python backend template with complete observabi
 
 ```
 FastAPI Backend → OTEL Collector → Jaeger → Jaeger UI
+                      ↓
+                    Tempo → Grafana
      ↓
   Fluent Bit → Loki → Grafana
 ```
 
 Complete observability stack with:
-- **Distributed Tracing**: OpenTelemetry → Jaeger
+- **Distributed Tracing**: OpenTelemetry → Jaeger & Tempo
 - **Centralized Logging**: Fluent Bit → Loki → Grafana
 - **Metrics & Visualization**: Grafana dashboards
 - **Real-time Monitoring**: Health checks and alerts

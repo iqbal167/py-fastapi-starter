@@ -17,9 +17,15 @@ processors:
     check_interval: 1s
 
 exporters:
-  # Use OTLP exporter to send to Jaeger
-  otlp:
+  # Send to Jaeger
+  otlp/jaeger:
     endpoint: jaeger:4317
+    tls:
+      insecure: true
+  
+  # Send to Tempo
+  otlp/tempo:
+    endpoint: tempo:4317
     tls:
       insecure: true
 
@@ -34,7 +40,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlp]
+      exporters: [otlp/jaeger, otlp/tempo]
   
   telemetry:
     logs:
