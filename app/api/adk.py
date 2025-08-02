@@ -54,7 +54,7 @@ def get_agent(settings: Settings = Depends(get_settings)) -> Optional[Observabil
     global _agent_instance
     
     if _agent_instance is None:
-        api_key = settings.google_adk_api_key or settings.gemini_api_key
+        api_key = settings.gemini_api_key
         if api_key:
             _agent_instance = create_observability_agent(api_key)
     
@@ -65,7 +65,7 @@ def get_agent(settings: Settings = Depends(get_settings)) -> Optional[Observabil
 def adk_status(settings: Settings = Depends(get_settings)):
     """Check if Google ADK agent is available and configured."""
     with tracer.start_as_current_span("adk_status"):
-        api_key = settings.google_adk_api_key or settings.gemini_api_key
+        api_key = settings.gemini_api_key
         agent = get_agent(settings)
         
         return {
@@ -88,7 +88,7 @@ async def chat_with_agent(
         if not agent:
             raise HTTPException(
                 status_code=503,
-                detail="ADK agent not available. Please check GOOGLE_ADK_API_KEY or GEMINI_API_KEY configuration."
+                detail="ADK agent not available. Please check GEMINI_API_KEY configuration."
             )
         
         try:
@@ -126,7 +126,7 @@ async def perform_health_check(settings: Settings = Depends(get_settings)):
         if not agent:
             raise HTTPException(
                 status_code=503,
-                detail="ADK agent not available. Please check GOOGLE_ADK_API_KEY or GEMINI_API_KEY configuration."
+                detail="ADK agent not available. Please check GEMINI_API_KEY configuration."
             )
         
         try:
@@ -153,7 +153,7 @@ async def get_system_metrics(settings: Settings = Depends(get_settings)):
         if not agent:
             raise HTTPException(
                 status_code=503,
-                detail="ADK agent not available. Please check GOOGLE_ADK_API_KEY or GEMINI_API_KEY configuration."
+                detail="ADK agent not available. Please check GEMINI_API_KEY configuration."
             )
         
         try:
@@ -183,7 +183,7 @@ async def analyze_system(
         if not agent:
             raise HTTPException(
                 status_code=503,
-                detail="ADK agent not available. Please check GOOGLE_ADK_API_KEY or GEMINI_API_KEY configuration."
+                detail="ADK agent not available. Please check GEMINI_API_KEY configuration."
             )
         
         try:

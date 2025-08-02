@@ -7,8 +7,9 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import asyncio
 
-from google.adk import Agent
-from google.adk.tools import BaseTool, FunctionTool
+# Perbaikan import sesuai dokumentasi ADK
+from google.adk.agents import Agent
+from google.adk.tools import FunctionTool
 from opentelemetry import trace
 from app.core.settings import settings
 
@@ -270,34 +271,34 @@ class ObservabilityAgent:
     """Google ADK Agent for system observability and health monitoring."""
     
     def __init__(self, api_key: str):
-        # Create function tools
+        # Konfigurasi API key untuk Gemini
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        
+        # Create function tools sesuai dengan format ADK terbaru
         health_check_tool = FunctionTool(
-            name="health_check",
-            description="Perform comprehensive health check on the FastAPI system",
-            func=health_check_function
+            func=health_check_function,
+            description="Perform comprehensive health check on the FastAPI system"
         )
         
         system_metrics_tool = FunctionTool(
-            name="system_metrics", 
-            description="Get system metrics including CPU, memory, and application performance",
-            func=system_metrics_function
+            func=system_metrics_function,
+            description="Get system metrics including CPU, memory, and application performance"
         )
         
         query_logs_tool = FunctionTool(
-            name="query_logs",
-            description="Query application logs with filters",
-            func=query_logs_function
+            func=query_logs_function,
+            description="Query application logs with filters"
         )
         
         self.tools = [health_check_tool, system_metrics_tool, query_logs_tool]
         
-        # Create agent with tools
+        # Create agent with tools sesuai dengan format ADK terbaru
         self.agent = Agent(
             name="FastAPI Observability Agent",
             model="gemini-1.5-flash",
             tools=self.tools,
-            system_instruction="""
-            You are an expert observability and monitoring agent for a FastAPI application.
+            instruction="""You are an expert observability and monitoring agent for a FastAPI application.
             
             Your role is to:
             1. Monitor system health and performance
@@ -323,7 +324,7 @@ class ObservabilityAgent:
         """Chat with the observability agent."""
         with tracer.start_as_current_span("adk_agent_chat"):
             try:
-                # Use the agent's run_async method
+                # Gunakan run_async method dari ADK terbaru
                 response = await self.agent.run_async(message)
                 return response
             except Exception as e:
@@ -344,7 +345,7 @@ class ObservabilityAgent:
 def create_observability_agent(api_key: str) -> Optional[ObservabilityAgent]:
     """Create an observability agent instance."""
     if not api_key:
-        logger.warning("Google ADK API key not provided")
+        logger.warning("Gemini API key not provided")
         return None
     
     try:

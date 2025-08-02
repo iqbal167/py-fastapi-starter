@@ -78,12 +78,7 @@ class Settings(BaseSettings):
 
     # Google Gemini Configuration
     gemini_api_key: Optional[str] = Field(
-        default=None, description="Google Gemini API key"
-    )
-
-    # Google ADK Configuration
-    google_adk_api_key: Optional[str] = Field(
-        default=None, description="Google ADK API key (can use same as Gemini)"
+        default=None, description="Google Gemini API key (used for both Gemini and ADK services)"
     )
 
     # Computed properties for CORS (not from env vars)
