@@ -287,14 +287,26 @@
                 </div>
             </div>
 
-            <!-- Quick Actions Panel -->
+            <!-- Observability Panel -->
             <div class="panel">
-                <h2>⚡ Quick Actions</h2>
+                <h2>📊 Observability Data</h2>
                 <div class="quick-actions">
-                    <button class="btn btn-primary" onclick="quickChat('What is the current health status?')">Health Status</button>
-                    <button class="btn btn-primary" onclick="quickChat('Check system performance')">Performance</button>
-                    <button class="btn btn-primary" onclick="quickChat('Are there any issues?')">Issues Check</button>
-                    <button class="btn btn-primary" onclick="quickChat('Show memory usage')">Memory Usage</button>
+                    <button class="btn btn-primary" onclick="getObservabilitySummary()">📋 Summary</button>
+                    <button class="btn btn-info" onclick="queryLogs()">📝 Recent Logs</button>
+                    <button class="btn btn-info" onclick="queryTraces()">🔍 Recent Traces</button>
+                    <button class="btn btn-success" onclick="analyzePerformance()">⚡ Performance</button>
+                </div>
+                <div id="observability-display"></div>
+            </div>
+
+            <!-- Quick Chat Panel -->
+            <div class="panel">
+                <h2>⚡ Quick Chat</h2>
+                <div class="quick-actions">
+                    <button class="btn btn-primary" onclick="quickChat('Tampilkan ringkasan observability sistem')">📋 Ringkasan</button>
+                    <button class="btn btn-primary" onclick="quickChat('Ada error apa dalam 1 jam terakhir?')">🚨 Cek Error</button>
+                    <button class="btn btn-primary" onclick="quickChat('Bagaimana performa sistem?')">⚡ Performa</button>
+                    <button class="btn btn-primary" onclick="quickChat('Cek traces yang lambat')">🐌 Slow Traces</button>
                 </div>
                 <div id="metrics-display"></div>
             </div>
@@ -512,6 +524,196 @@
         function quickChat(message) {
             document.getElementById('chat-input').value = message;
             sendMessage();
+        }
+
+        async function getObservabilitySummary() {
+            const display = document.getElementById('observability-display');
+            display.innerHTML = '<div class="loading"><div class="spinner"></div>Loading observability summary...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/observability-summary`);
+                const data = await response.json();
+                
+                let html = '<h3>📊 Observability Summary</h3>';
+                html += '<div class="metrics-grid">';
+                
+                const summary = data.summary;
+                html += `
+                    <div class="metric-card">
+                        <div class="metric-value">${summary.recent_logs_count}</div>
+                        <div class="metric-label">Recent Logs</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${summary.recent_traces_count}</div>
+                        <div class="metric-label">Recent Traces</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${summary.error_count}</div>
+                        <div class="metric-label">Errors</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${summary.avg_response_time_ms}ms</div>
+                        <div class="metric-label">Avg Response</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${summary.system_cpu_percent.toFixed(1)}%</div>
+                        <div class="metric-label">CPU Usage</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${summary.system_memory_percent.toFixed(1)}%</div>
+                        <div class="metric-label">Memory Usage</div>
+                    </div>
+                `;
+                
+                html += '</div>';
+                
+                if (summary.issues_detected > 0) {
+                    html += `<div class="error">⚠️ ${summary.issues_detected} issue(s) detected</div>`;
+                }
+                
+                display.innerHTML = html;
+            } catch (error) {
+                console.error('Error getting observability summary:', error);
+                display.innerHTML = `<div class="error">Failed to load observability summary: ${error.message}</div>`;
+            }
+        }
+
+        async function queryLogs() {
+            const display = document.getElementById('observability-display');
+            display.innerHTML = '<div class="loading"><div class="spinner"></div>Loading recent logs...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/logs?limit=10`);
+                const data = await response.json();
+                
+                let html = '<h3>📝 Recent Logs</h3>';
+                
+                if (data.logs && data.logs.length > 0) {
+                    html += '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">';
+                    data.logs.forEach(log => {
+                        const levelColor = {
+                            'ERROR': '#f44336',
+                            'WARNING': '#ff9800',
+                            'INFO': '#2196f3',
+                            'DEBUG': '#9e9e9e'
+                        }[log.level] || '#2196f3';
+                        
+                        html += `
+                            <div style="margin-bottom: 10px; padding: 8px; border-left: 3px solid ${levelColor}; background: #f9f9f9;">
+                                <strong style="color: ${levelColor}">[${log.level}]</strong> 
+                                <small>${new Date(log.timestamp).toLocaleString()}</small><br>
+                                ${log.message}
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div class="success">No logs found in the specified time range</div>';
+                }
+                
+                display.innerHTML = html;
+            } catch (error) {
+                console.error('Error querying logs:', error);
+                display.innerHTML = `<div class="error">Failed to query logs: ${error.message}</div>`;
+            }
+        }
+
+        async function queryTraces() {
+            const display = document.getElementById('observability-display');
+            display.innerHTML = '<div class="loading"><div class="spinner"></div>Loading recent traces...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/traces?limit=10`);
+                const data = await response.json();
+                
+                let html = '<h3>🔍 Recent Traces</h3>';
+                
+                if (data.traces && data.traces.length > 0) {
+                    html += '<div style="max-height: 300px; overflow-y: auto;">';
+                    data.traces.forEach(trace => {
+                        const durationColor = trace.duration_ms > 1000 ? '#f44336' : 
+                                            trace.duration_ms > 500 ? '#ff9800' : '#4caf50';
+                        
+                        html += `
+                            <div class="metric-card" style="margin-bottom: 10px; text-align: left;">
+                                <div><strong>Trace ID:</strong> ${trace.trace_id.substring(0, 16)}...</div>
+                                <div><strong>Duration:</strong> <span style="color: ${durationColor}">${trace.duration_ms.toFixed(2)}ms</span></div>
+                                <div><strong>Spans:</strong> ${trace.spans}</div>
+                                <div><strong>Operations:</strong> ${trace.operations.join(', ')}</div>
+                                <div><strong>Time:</strong> ${new Date(trace.start_time).toLocaleString()}</div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div class="success">No traces found in the specified time range</div>';
+                }
+                
+                display.innerHTML = html;
+            } catch (error) {
+                console.error('Error querying traces:', error);
+                display.innerHTML = `<div class="error">Failed to query traces: ${error.message}</div>`;
+            }
+        }
+
+        async function analyzePerformance() {
+            const display = document.getElementById('observability-display');
+            display.innerHTML = '<div class="loading"><div class="spinner"></div>Analyzing performance...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/performance`);
+                const data = await response.json();
+                
+                let html = '<h3>⚡ Performance Analysis</h3>';
+                
+                if (data.analysis) {
+                    const analysis = data.analysis;
+                    
+                    html += '<div class="metrics-grid">';
+                    html += `
+                        <div class="metric-card">
+                            <div class="metric-value">${analysis.error_count}</div>
+                            <div class="metric-label">Errors</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">${analysis.warning_count}</div>
+                            <div class="metric-label">Warnings</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">${analysis.avg_response_time_ms}ms</div>
+                            <div class="metric-label">Avg Response</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">${analysis.trace_count}</div>
+                            <div class="metric-label">Traces</div>
+                        </div>
+                    `;
+                    html += '</div>';
+                    
+                    if (analysis.issues && analysis.issues.length > 0) {
+                        html += '<h4>🚨 Issues Detected:</h4>';
+                        analysis.issues.forEach(issue => {
+                            html += `<div class="error">• ${issue}</div>`;
+                        });
+                    }
+                    
+                    if (analysis.slow_operations && analysis.slow_operations.length > 0) {
+                        html += '<h4>🐌 Slow Operations:</h4>';
+                        analysis.slow_operations.forEach(op => {
+                            html += `<div class="metric-card" style="margin-bottom: 5px; text-align: left;">
+                                <strong>${op.operations.join(', ')}</strong> - ${op.duration_ms.toFixed(2)}ms
+                            </div>`;
+                        });
+                    }
+                } else {
+                    html += '<div class="success">Performance analysis completed - no issues detected</div>';
+                }
+                
+                display.innerHTML = html;
+            } catch (error) {
+                console.error('Error analyzing performance:', error);
+                display.innerHTML = `<div class="error">Failed to analyze performance: ${error.message}</div>`;
+            }
         }
 
         function handleKeyPress(event) {

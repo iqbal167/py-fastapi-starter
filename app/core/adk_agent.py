@@ -7,11 +7,11 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import asyncio
 
-# Perbaikan import sesuai dokumentasi ADK
-from google.adk.agents import Agent
-from google.adk.tools import FunctionTool
+# Menggunakan Gemini langsung karena ADK belum tersedia
+import google.generativeai as genai
 from opentelemetry import trace
 from app.core.settings import settings
+from app.core.observability_service import observability_service
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
@@ -231,105 +231,184 @@ async def system_metrics_function(metric_type: str = "all") -> Dict[str, Any]:
             return {"error": f"Metrics collection failed: {str(e)}"}
 
 
-async def query_logs_function(level: Optional[str] = None, limit: int = 10, search: Optional[str] = None) -> Dict[str, Any]:
-    """Query application logs with filters.
+async def query_logs_function(level: Optional[str] = None, limit: int = 10, search: Optional[str] = None, hours_back: int = 1) -> Dict[str, Any]:
+    """Query application logs with filters dari Loki.
     
     Args:
         level: Log level to filter (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         limit: Maximum number of log entries to return
         search: Search term to filter logs
+        hours_back: Hours back to search
     
     Returns:
         Dictionary containing log query results
     """
     with tracer.start_as_current_span("adk_query_logs"):
         try:
-            # This is a simplified implementation
-            # In a real scenario, you'd query your log storage (Loki, etc.)
-            query_params = {"level": level, "limit": limit, "search": search}
-            logs = {
-                "timestamp": datetime.now().isoformat(),
-                "query_parameters": query_params,
-                "logs": [
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "level": "INFO",
-                        "message": "Sample log entry for demonstration",
-                        "service": settings.otel_service_name
-                    }
-                ],
-                "note": "This is a simplified implementation. In production, integrate with your log storage system."
-            }
+            if search:
+                result = await observability_service.query_logs(query=search, limit=limit, hours_back=hours_back)
+            else:
+                result = await observability_service.query_logs(level=level, limit=limit, hours_back=hours_back)
             
-            return logs
+            return result
         except Exception as e:
             logger.error(f"Log query failed: {e}")
             return {"error": f"Log query failed: {str(e)}"}
 
 
+async def query_traces_function(service: Optional[str] = None, operation: Optional[str] = None, 
+                               limit: int = 20, hours_back: int = 1) -> Dict[str, Any]:
+    """Query distributed traces dari Jaeger.
+    
+    Args:
+        service: Service name to filter
+        operation: Operation name to filter
+        limit: Maximum number of traces to return
+        hours_back: Hours back to search
+    
+    Returns:
+        Dictionary containing trace query results
+    """
+    with tracer.start_as_current_span("adk_query_traces"):
+        try:
+            result = await observability_service.query_traces(
+                service=service, operation=operation, limit=limit, hours_back=hours_back
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Trace query failed: {e}")
+            return {"error": f"Trace query failed: {str(e)}"}
+
+
+async def analyze_performance_function(hours_back: int = 1) -> Dict[str, Any]:
+    """Analisis performa sistem berdasarkan logs, traces, dan metrics.
+    
+    Args:
+        hours_back: Hours back to analyze
+    
+    Returns:
+        Dictionary containing performance analysis
+    """
+    with tracer.start_as_current_span("adk_analyze_performance"):
+        try:
+            result = await observability_service.analyze_performance(hours_back=hours_back)
+            return result
+        except Exception as e:
+            logger.error(f"Performance analysis failed: {e}")
+            return {"error": f"Performance analysis failed: {str(e)}"}
+
+
+async def get_observability_summary_function() -> Dict[str, Any]:
+    """Dapatkan ringkasan lengkap observability data.
+    
+    Returns:
+        Dictionary containing comprehensive observability summary
+    """
+    with tracer.start_as_current_span("adk_observability_summary"):
+        try:
+            # Get recent data
+            recent_logs = await observability_service.query_logs(limit=5, hours_back=1)
+            recent_traces = await observability_service.query_traces(limit=5, hours_back=1)
+            metrics = await observability_service.get_metrics_summary()
+            performance = await observability_service.analyze_performance(hours_back=1)
+            
+            return {
+                "status": "success",
+                "timestamp": datetime.now().isoformat(),
+                "summary": {
+                    "recent_logs_count": len(recent_logs.get('logs', [])),
+                    "recent_traces_count": len(recent_traces.get('traces', [])),
+                    "error_count": performance.get('analysis', {}).get('error_count', 0),
+                    "avg_response_time_ms": performance.get('analysis', {}).get('avg_response_time_ms', 0),
+                    "system_cpu_percent": metrics.get('system', {}).get('cpu_percent', 0),
+                    "system_memory_percent": metrics.get('system', {}).get('memory', {}).get('percent', 0),
+                    "issues_detected": len(performance.get('analysis', {}).get('issues', []))
+                },
+                "details": {
+                    "logs": recent_logs,
+                    "traces": recent_traces,
+                    "metrics": metrics,
+                    "performance": performance
+                }
+            }
+        except Exception as e:
+            logger.error(f"Observability summary failed: {e}")
+            return {"error": f"Observability summary failed: {str(e)}"}
+
+
 class ObservabilityAgent:
-    """Google ADK Agent for system observability and health monitoring."""
+    """Observability Agent menggunakan Gemini untuk system monitoring."""
     
     def __init__(self, api_key: str):
-        # Konfigurasi API key untuk Gemini
-        import google.generativeai as genai
         genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
         
-        # Create function tools sesuai dengan format ADK terbaru
-        health_check_tool = FunctionTool(
-            func=health_check_function,
-            description="Perform comprehensive health check on the FastAPI system"
-        )
+        self.system_prompt = """You are an expert observability and monitoring agent for a FastAPI application with complete observability stack (Logs, Traces, Metrics).
         
-        system_metrics_tool = FunctionTool(
-            func=system_metrics_function,
-            description="Get system metrics including CPU, memory, and application performance"
-        )
+        Your role is to:
+        1. Monitor system health and performance in real-time
+        2. Analyze logs dari Loki dengan LogQL queries
+        3. Investigate distributed traces dari Jaeger
+        4. Collect dan analyze system/application metrics
+        5. Provide troubleshooting guidance berdasarkan observability data
+        6. Suggest optimizations dan performance improvements
+        7. Alert on potential issues dan anomalies
         
-        query_logs_tool = FunctionTool(
-            func=query_logs_function,
-            description="Query application logs with filters"
-        )
+        When user asks about observability data, you should gather current system information and provide actionable insights.
         
-        self.tools = [health_check_tool, system_metrics_tool, query_logs_tool]
-        
-        # Create agent with tools sesuai dengan format ADK terbaru
-        self.agent = Agent(
-            name="FastAPI Observability Agent",
-            model="gemini-1.5-flash",
-            tools=self.tools,
-            instruction="""You are an expert observability and monitoring agent for a FastAPI application.
-            
-            Your role is to:
-            1. Monitor system health and performance
-            2. Analyze logs and metrics
-            3. Provide troubleshooting guidance
-            4. Suggest optimizations
-            5. Alert on potential issues
-            
-            You have access to tools that can:
-            - Perform comprehensive health checks
-            - Collect system and application metrics
-            - Query application logs
-            
-            Always provide clear, actionable insights and recommendations.
-            When issues are detected, suggest specific steps to resolve them.
-            Use the available tools to gather current system state before making recommendations.
-            
-            Be concise but thorough in your responses.
-            """
-        )
+        Respond in Indonesian when user asks in Indonesian, English when user asks in English.
+        Be concise but thorough in your responses.
+        """
     
     async def chat(self, message: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
         """Chat with the observability agent."""
         with tracer.start_as_current_span("adk_agent_chat"):
             try:
-                # Gunakan run_async method dari ADK terbaru
-                response = await self.agent.run_async(message)
-                return response
+                # Gather observability data berdasarkan pertanyaan
+                context_data = await self._gather_context_data(message)
+                
+                # Build prompt dengan context
+                full_prompt = f"{self.system_prompt}\n\nCurrent System Data:\n{context_data}\n\nUser Question: {message}\n\nPlease provide a helpful response based on the current system data."
+                
+                response = self.model.generate_content(full_prompt)
+                return response.text
             except Exception as e:
-                logger.error(f"ADK agent chat failed: {e}")
+                logger.error(f"Agent chat failed: {e}")
                 return f"Sorry, I encountered an error: {str(e)}"
+    
+    async def _gather_context_data(self, message: str) -> str:
+        """Gather relevant observability data berdasarkan user message."""
+        context = []
+        
+        try:
+            # Always get basic health and metrics
+            health_data = await health_check_function()
+            metrics_data = await system_metrics_function()
+            
+            context.append(f"Health Status: {health_data}")
+            context.append(f"System Metrics: {metrics_data}")
+            
+            # Get specific data berdasarkan keywords
+            message_lower = message.lower()
+            
+            if any(word in message_lower for word in ['log', 'error', 'warning']):
+                logs_data = await query_logs_function(limit=5)
+                context.append(f"Recent Logs: {logs_data}")
+            
+            if any(word in message_lower for word in ['trace', 'slow', 'performance']):
+                traces_data = await query_traces_function(limit=5)
+                performance_data = await analyze_performance_function()
+                context.append(f"Recent Traces: {traces_data}")
+                context.append(f"Performance Analysis: {performance_data}")
+            
+            if any(word in message_lower for word in ['summary', 'overview', 'ringkasan']):
+                summary_data = await get_observability_summary_function()
+                context.append(f"Observability Summary: {summary_data}")
+                
+        except Exception as e:
+            context.append(f"Error gathering context: {str(e)}")
+        
+        return "\n".join(context)
     
     async def perform_health_check(self) -> Dict[str, Any]:
         """Perform a comprehensive health check."""

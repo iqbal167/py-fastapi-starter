@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import logging
+from datetime import datetime
 
 from app.core.settings import Settings, get_settings
 from app.core.adk_agent import create_observability_agent, ObservabilityAgent
@@ -224,6 +225,109 @@ async def analyze_system(
             )
 
 
+@router.get("/logs")
+async def query_logs(
+    level: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 50,
+    hours_back: int = 1,
+    settings: Settings = Depends(get_settings)
+):
+    """Query logs directly dari Loki."""
+    with tracer.start_as_current_span("adk_query_logs_direct"):
+        from app.core.observability_service import observability_service
+        
+        try:
+            if search:
+                result = await observability_service.query_logs(
+                    query=search, limit=limit, hours_back=hours_back
+                )
+            else:
+                result = await observability_service.query_logs(
+                    level=level, limit=limit, hours_back=hours_back
+                )
+            return result
+        except Exception as e:
+            logger.error(f"Direct log query failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/traces")
+async def query_traces(
+    service: Optional[str] = None,
+    operation: Optional[str] = None,
+    limit: int = 20,
+    hours_back: int = 1,
+    settings: Settings = Depends(get_settings)
+):
+    """Query traces directly dari Jaeger."""
+    with tracer.start_as_current_span("adk_query_traces_direct"):
+        from app.core.observability_service import observability_service
+        
+        try:
+            result = await observability_service.query_traces(
+                service=service, operation=operation, limit=limit, hours_back=hours_back
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Direct trace query failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/performance")
+async def analyze_performance(
+    hours_back: int = 1,
+    settings: Settings = Depends(get_settings)
+):
+    """Analyze system performance."""
+    with tracer.start_as_current_span("adk_analyze_performance_direct"):
+        from app.core.observability_service import observability_service
+        
+        try:
+            result = await observability_service.analyze_performance(hours_back=hours_back)
+            return result
+        except Exception as e:
+            logger.error(f"Performance analysis failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/observability-summary")
+async def get_observability_summary(settings: Settings = Depends(get_settings)):
+    """Get comprehensive observability summary."""
+    with tracer.start_as_current_span("adk_observability_summary_direct"):
+        from app.core.observability_service import observability_service
+        
+        try:
+            # Get recent data
+            recent_logs = await observability_service.query_logs(limit=5, hours_back=1)
+            recent_traces = await observability_service.query_traces(limit=5, hours_back=1)
+            metrics = await observability_service.get_metrics_summary()
+            performance = await observability_service.analyze_performance(hours_back=1)
+            
+            return {
+                "status": "success",
+                "timestamp": datetime.now().isoformat(),
+                "summary": {
+                    "recent_logs_count": len(recent_logs.get('logs', [])),
+                    "recent_traces_count": len(recent_traces.get('traces', [])),
+                    "error_count": performance.get('analysis', {}).get('error_count', 0),
+                    "avg_response_time_ms": performance.get('analysis', {}).get('avg_response_time_ms', 0),
+                    "system_cpu_percent": metrics.get('system', {}).get('cpu_percent', 0),
+                    "system_memory_percent": metrics.get('system', {}).get('memory', {}).get('percent', 0),
+                    "issues_detected": len(performance.get('analysis', {}).get('issues', []))
+                },
+                "details": {
+                    "logs": recent_logs,
+                    "traces": recent_traces,
+                    "metrics": metrics,
+                    "performance": performance
+                }
+            }
+        except Exception as e:
+            logger.error(f"Observability summary failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/help")
 def get_help():
     """Get help information about available ADK endpoints."""
@@ -233,25 +337,44 @@ def get_help():
             "/adk/chat": "Chat with the observability agent for troubleshooting",
             "/adk/health-check": "Perform comprehensive health check",
             "/adk/metrics": "Get current system metrics",
+            "/adk/logs": "Query logs directly dari Loki",
+            "/adk/traces": "Query traces directly dari Jaeger",
+            "/adk/performance": "Analyze system performance",
+            "/adk/observability-summary": "Get comprehensive observability summary",
             "/adk/analyze": "Perform comprehensive system analysis",
             "/adk/help": "This help information"
         },
         "example_chat_messages": [
+            "Tampilkan ringkasan observability sistem saat ini",
+            "Ada error apa saja dalam 1 jam terakhir?",
+            "Bagaimana performa sistem hari ini?",
+            "Cek traces yang lambat",
+            "Analisis logs untuk mencari masalah",
             "What is the current health status of the system?",
             "Are there any performance issues I should be aware of?",
-            "How is the memory usage looking?",
-            "Check if all services are running properly",
-            "What are the current system metrics?",
-            "Is the database connection healthy?",
-            "Are there any errors in the logs?",
-            "How can I improve system performance?"
+            "Show me recent error logs",
+            "Check slow traces and operations",
+            "Analyze system performance trends"
         ],
+        "observability_features": {
+            "logs": "Query logs dari Loki dengan LogQL support",
+            "traces": "Query distributed traces dari Jaeger",
+            "metrics": "System dan application metrics",
+            "performance": "Automated performance analysis",
+            "chat": "Natural language interface untuk troubleshooting"
+        },
         "configuration": {
             "required_env_vars": [
-                "GOOGLE_ADK_API_KEY (or GEMINI_API_KEY as fallback)"
+                "GEMINI_API_KEY (for Google ADK agent)"
             ],
             "optional_dependencies": [
                 "psutil (for detailed system metrics)"
+            ],
+            "observability_stack": [
+                "Loki (logs) - http://localhost:3100",
+                "Jaeger (traces) - http://localhost:16686",
+                "Grafana (visualization) - http://localhost:3000",
+                "OTEL Collector - http://localhost:13133"
             ]
         }
     }
