@@ -328,6 +328,23 @@ async def get_observability_summary(settings: Settings = Depends(get_settings)):
             raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/generate-test-data")
+async def generate_test_data(settings: Settings = Depends(get_settings)):
+    """Generate test data untuk observability testing."""
+    with tracer.start_as_current_span("adk_generate_test_data"):
+        try:
+            from app.core.test_data_generator import generate_test_data
+            await generate_test_data()
+            return {
+                "status": "success",
+                "message": "Test data generated successfully",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Test data generation failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/help")
 def get_help():
     """Get help information about available ADK endpoints."""

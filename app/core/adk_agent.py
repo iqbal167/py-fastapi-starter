@@ -135,26 +135,30 @@ async def _check_tracing_health() -> Dict[str, Any]:
         try:
             # Check if OTEL collector is reachable
             import httpx
-            otel_endpoint = settings.otel_exporter_otlp_endpoint.replace("4317", "13133")  # Health check port
+            # Fix: Use correct port 13133 instead of 113133
+            otel_health_endpoint = "http://localhost:13133"
             
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{otel_endpoint}")
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(otel_health_endpoint)
                 if response.status_code == 200:
                     return {
                         "status": "healthy",
                         "endpoint": settings.otel_exporter_otlp_endpoint,
+                        "health_endpoint": otel_health_endpoint,
                         "service_name": settings.otel_service_name
                     }
                 else:
                     return {
                         "status": "degraded",
                         "endpoint": settings.otel_exporter_otlp_endpoint,
+                        "health_endpoint": otel_health_endpoint,
                         "note": "OTEL collector not reachable, traces may not be exported"
                     }
         except Exception as e:
             return {
                 "status": "degraded",
                 "error": str(e),
+                "endpoint": settings.otel_exporter_otlp_endpoint,
                 "note": "OTEL collector not reachable, traces may not be exported"
             }
 async def _check_logging_health() -> Dict[str, Any]:
@@ -343,21 +347,27 @@ class ObservabilityAgent:
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-1.5-flash')
         
-        self.system_prompt = """You are an expert observability and monitoring agent for a FastAPI application with complete observability stack (Logs, Traces, Metrics).
+        self.system_prompt = """You are an expert observability and monitoring agent for a FastAPI application.
         
-        Your role is to:
-        1. Monitor system health and performance in real-time
-        2. Analyze logs dari Loki dengan LogQL queries
-        3. Investigate distributed traces dari Jaeger
-        4. Collect dan analyze system/application metrics
-        5. Provide troubleshooting guidance berdasarkan observability data
-        6. Suggest optimizations dan performance improvements
-        7. Alert on potential issues dan anomalies
+        IMPORTANT INSTRUCTIONS:
+        1. Always analyze the provided system data carefully
+        2. Give specific, actionable insights based on actual data
+        3. Highlight any issues or anomalies found
+        4. Provide clear recommendations
+        5. Use emojis and formatting for better readability
+        6. Respond in the same language as the user's question
         
-        When user asks about observability data, you should gather current system information and provide actionable insights.
+        When analyzing data:
+        - Focus on ERROR and WARNING logs first
+        - Check response times and performance metrics
+        - Identify trends and patterns
+        - Suggest specific actions to resolve issues
         
-        Respond in Indonesian when user asks in Indonesian, English when user asks in English.
-        Be concise but thorough in your responses.
+        Format your response with:
+        📊 **System Status**: Overall health summary
+        🔍 **Key Findings**: Important observations
+        ⚠️ **Issues**: Problems that need attention
+        💡 **Recommendations**: Specific actions to take
         """
     
     async def chat(self, message: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
@@ -367,46 +377,114 @@ class ObservabilityAgent:
                 # Gather observability data berdasarkan pertanyaan
                 context_data = await self._gather_context_data(message)
                 
-                # Build prompt dengan context
-                full_prompt = f"{self.system_prompt}\n\nCurrent System Data:\n{context_data}\n\nUser Question: {message}\n\nPlease provide a helpful response based on the current system data."
+                # Build comprehensive prompt
+                full_prompt = f"""{self.system_prompt}
+
+=== CURRENT SYSTEM DATA ===
+{context_data}
+
+=== USER QUESTION ===
+{message}
+
+=== INSTRUCTIONS ===
+Analyze the system data above and provide a comprehensive response that:
+1. Addresses the user's specific question
+2. Highlights any issues or concerns found in the data
+3. Provides actionable recommendations
+4. Uses the specified format with emojis and sections
+
+Respond in the same language as the user's question."""
                 
                 response = self.model.generate_content(full_prompt)
                 return response.text
             except Exception as e:
                 logger.error(f"Agent chat failed: {e}")
-                return f"Sorry, I encountered an error: {str(e)}"
+                # Detect language and return appropriate error message
+                indonesian_words = ['apa', 'bagaimana', 'tampilkan', 'cek', 'ada', 'sistem', 'ringkasan']
+                is_indonesian = any(word in message.lower() for word in indonesian_words)
+                
+                if is_indonesian:
+                    return f"🚨 Maaf, terjadi error saat menganalisis sistem: {str(e)}\n\n💡 Silakan coba lagi atau periksa koneksi ke observability tools."
+                else:
+                    return f"🚨 Sorry, I encountered an error while analyzing the system: {str(e)}\n\n💡 Please try again or check the connection to observability tools."
     
     async def _gather_context_data(self, message: str) -> str:
         """Gather relevant observability data berdasarkan user message."""
         context = []
+        message_lower = message.lower()
         
         try:
-            # Always get basic health and metrics
+            # Always get basic health and metrics for context
             health_data = await health_check_function()
             metrics_data = await system_metrics_function()
             
-            context.append(f"Health Status: {health_data}")
-            context.append(f"System Metrics: {metrics_data}")
-            
-            # Get specific data berdasarkan keywords
-            message_lower = message.lower()
-            
-            if any(word in message_lower for word in ['log', 'error', 'warning']):
-                logs_data = await query_logs_function(limit=5)
-                context.append(f"Recent Logs: {logs_data}")
-            
-            if any(word in message_lower for word in ['trace', 'slow', 'performance']):
-                traces_data = await query_traces_function(limit=5)
-                performance_data = await analyze_performance_function()
-                context.append(f"Recent Traces: {traces_data}")
-                context.append(f"Performance Analysis: {performance_data}")
-            
-            if any(word in message_lower for word in ['summary', 'overview', 'ringkasan']):
-                summary_data = await get_observability_summary_function()
-                context.append(f"Observability Summary: {summary_data}")
+            # Format health data
+            if health_data.get('status') != 'error':
+                overall_status = health_data.get('overall_status', 'unknown')
+                components = health_data.get('components', {})
+                context.append(f"SYSTEM HEALTH: {overall_status.upper()}")
                 
+                for comp, status in components.items():
+                    comp_status = status.get('status', 'unknown')
+                    context.append(f"- {comp}: {comp_status}")
+            
+            # Format metrics data
+            if metrics_data.get('status') != 'error':
+                sys_metrics = metrics_data.get('system', {})
+                app_metrics = metrics_data.get('application', {})
+                
+                context.append(f"\nSYSTEM METRICS:")
+                context.append(f"- CPU: {sys_metrics.get('cpu_percent', 0):.1f}%")
+                context.append(f"- Memory: {sys_metrics.get('memory', {}).get('percent', 0):.1f}%")
+                context.append(f"- Disk: {sys_metrics.get('disk', {}).get('percent', 0):.1f}%")
+                
+                context.append(f"\nAPPLICATION METRICS:")
+                context.append(f"- Memory: {app_metrics.get('memory_mb', 0):.1f}MB")
+                context.append(f"- Threads: {app_metrics.get('threads', 0)}")
+                context.append(f"- Uptime: {app_metrics.get('uptime_seconds', 0)}s")
+            
+            # Get specific data based on keywords
+            if any(word in message_lower for word in ['log', 'error', 'warning', 'issue']):
+                logs_data = await query_logs_function(limit=10)
+                if logs_data.get('status') in ['success', 'fallback']:
+                    logs = logs_data.get('logs', [])
+                    summary = logs_data.get('summary', {})
+                    
+                    context.append(f"\nRECENT LOGS ({len(logs)} entries):")
+                    context.append(f"- Errors: {summary.get('error_count', 0)}")
+                    context.append(f"- Warnings: {summary.get('warning_count', 0)}")
+                    context.append(f"- Info: {summary.get('info_count', 0)}")
+                    
+                    # Show recent important logs
+                    important_logs = [l for l in logs if l['level'] in ['ERROR', 'WARNING']][:3]
+                    if important_logs:
+                        context.append("\nIMPORTANT LOG ENTRIES:")
+                        for log in important_logs:
+                            context.append(f"- [{log['level']}] {log['message'][:100]}...")
+            
+            if any(word in message_lower for word in ['trace', 'slow', 'performance', 'response']):
+                performance_data = await analyze_performance_function()
+                if performance_data.get('status') != 'error':
+                    analysis = performance_data.get('analysis', {})
+                    context.append(f"\nPERFORMANCE ANALYSIS:")
+                    context.append(f"- Average Response Time: {analysis.get('avg_response_time_ms', 0):.1f}ms")
+                    context.append(f"- Error Count: {analysis.get('error_count', 0)}")
+                    context.append(f"- Trace Count: {analysis.get('trace_count', 0)}")
+                    
+                    issues = analysis.get('issues', [])
+                    if issues:
+                        context.append("\nPERFORMANCE ISSUES:")
+                        for issue in issues[:3]:
+                            context.append(f"- {issue}")
+                    
+                    slow_ops = analysis.get('slow_operations', [])
+                    if slow_ops:
+                        context.append("\nSLOW OPERATIONS:")
+                        for op in slow_ops[:2]:
+                            context.append(f"- {op.get('duration_ms', 0):.1f}ms: {', '.join(op.get('operations', [])[:2])}")
+            
         except Exception as e:
-            context.append(f"Error gathering context: {str(e)}")
+            context.append(f"\nERROR GATHERING DATA: {str(e)}")
         
         return "\n".join(context)
     
