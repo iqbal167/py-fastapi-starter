@@ -26,8 +26,7 @@ COPY pyproject.toml ./
 COPY uv.lock ./
 
 # Install dependencies
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install -e .
+RUN uv pip install -e .
 
 # Runtime stage
 FROM python:3.11-alpine AS runtime
