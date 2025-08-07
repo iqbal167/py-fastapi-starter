@@ -71,11 +71,6 @@ coverage.xml
 *.log
 logs/
 
-# Docker
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-
 # CI/CD
 .github/
 .gitlab-ci.yml
