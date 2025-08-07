@@ -62,12 +62,17 @@ RUN chown -R appuser:appgroup /app
 # Switch to non-root user
 USER appuser
 
-# Expose port
-EXPOSE 8000
+# Set environment variables for Cloud Run
+ENV PORT=8080
+ENV ENVIRONMENT=production
+ENV DEBUG=false
 
-# Health check
+# Expose port (Cloud Run uses PORT env var)
+EXPOSE 8080
+
+# Health check (use PORT env var)
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Use run.py as entry point
 CMD ["python", "run.py"]

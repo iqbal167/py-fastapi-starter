@@ -30,6 +30,17 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")
     reload: bool = Field(default=True, description="Auto-reload on code changes")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Use PORT environment variable if available (for Cloud Run)
+        import os
+        if "PORT" in os.environ:
+            self.port = int(os.environ["PORT"])
+        
+        # Validate critical settings in production
+        if self.environment == "production":
+            self._validate_production_settings()
 
     # API Configuration
     api_v1_prefix: str = Field(default="/api/v1", description="API v1 prefix")
@@ -97,12 +108,6 @@ class Settings(BaseSettings):
             # In production, specify actual frontend URLs
             return ["https://yourdomain.com", "https://www.yourdomain.com"]
         return ["*"]  # Allow all in development
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Validate critical settings in production
-        if self.environment == "production":
-            self._validate_production_settings()
 
     def _validate_production_settings(self):
         """Validate critical settings for production environment."""
