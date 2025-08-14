@@ -457,7 +457,87 @@ docker compose exec api env | grep -E "(APP_|OTEL_|DEBUG)"
 
 ## Documentation
 
+Comprehensive documentation is available in the `docs/` directory:
+
+### Core Guides
+- **[Structlog Usage Guide](docs/STRUCTLOG_USAGE.md)** - Complete guide to structured logging with examples
+- **[Log Parser Guide](docs/LOG_PARSER_GUIDE.md)** - Parsing and analyzing JSON logs
+- **[Lifespan Management Guide](docs/LIFESPAN_GUIDE.md)** - Modern FastAPI lifecycle management
+- **[Clean Logging Guide](docs/CLEAN_LOGGING.md)** - Clean, consistent JSON logging setup
+
+### Configuration & Setup
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Application configuration and settings
+- **[Docker Guide](docs/DOCKER.md)** - Docker deployment and containerization
+- **[Observability Setup](docs/OBSERVABILITY_CHAT_API.md)** - Monitoring and observability
+
+### API Documentation
+- **[API Response Structure](docs/API_RESPONSE_STRUCTURE.md)** - Standardized API responses
+- **[Booking API](docs/BOOKING_API.md)** - Example API implementation
+
+### Monitoring & Analysis
+- **[Grafana Usage Guide](docs/GRAFANA_USAGE_GUIDE.md)** - Log visualization and dashboards
+- **[LogQL Queries](docs/LOGQL_QUERIES.md)** - Ready-to-use log queries
+- **[Logging Guide](docs/LOGGING.md)** - Legacy logging documentation
+
+### Interactive API Documentation
 - [API Documentation](http://localhost:8000/docs) - Interactive API docs (when running)
+
+## Examples
+
+All examples are integrated into the documentation guides above. Key examples include:
+
+### Structured Logging Examples
+```python
+from app.core.context import get_bound_logger, bind_structlog_context
+from app.utils.logging import log_function_call
+
+# Basic logging
+logger = get_bound_logger("app.example")
+logger.info("User action", user_id="123", action="login")
+
+# Function decorator
+@log_function_call(log_duration=True)
+def process_data(data):
+    return {"processed": True}
+
+# Context binding
+bind_structlog_context(user_id="123", operation="checkout")
+logger.info("Processing payment")  # Includes user_id and operation
+```
+
+### Log Analysis Examples
+```python
+from app.utils import parse_log_file, find_slow_requests
+
+# Parse and analyze logs
+parser = parse_log_file("app.log")
+slow_requests = find_slow_requests("app.log", threshold_ms=1000)
+
+# Performance analysis
+performance = parser.analyze_performance()
+print(f"Average duration: {performance['avg_duration_ms']}ms")
+```
+
+### Lifespan Management Examples
+```python
+from contextlib import asynccontextmanager
+from app.utils import LifespanManager
+
+# Using LifespanManager
+manager = LifespanManager()
+
+@manager.startup("database")
+async def setup_db():
+    # Database setup logic
+    pass
+
+@manager.shutdown("database")
+async def cleanup_db():
+    # Database cleanup logic
+    pass
+
+app = FastAPI(lifespan=manager.lifespan)
+```
 
 ## Package Information
 
