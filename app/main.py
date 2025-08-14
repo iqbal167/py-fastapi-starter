@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     logger = get_logger("app.startup")
     logger.info(
         "Application starting up",
+        event_type="app_startup",
         app_name=settings.app_name,
         version=settings.app_version,
         environment=settings.environment,
@@ -28,7 +29,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger = get_logger("app.shutdown")
-    logger.info("Application shutting down")
+    logger.info("Application shutting down", event_type="app_shutdown")
 
 
 # Create FastAPI app with lifespan and settings
@@ -64,6 +65,8 @@ app.add_middleware(RequestIDMiddleware)
 @app.get("/")
 def read_root():
     """Root endpoint that returns a welcome message."""
+    logger = get_logger("app.endpoint")
+    
     with tracer.start_as_current_span("root"):
         response_data = {
             "message": "Hello World",
@@ -71,6 +74,12 @@ def read_root():
             "version": settings.app_version,
             "environment": settings.environment,
         }
+        
+        # Simple business logic logging - event_type from middleware
+        logger.info("Application info requested", 
+                   app_name=settings.app_name,
+                   version=settings.app_version)
+        
         return response_data
 
 
@@ -90,6 +99,8 @@ def health_check():
 @app.get("/settings")
 def get_app_settings(current_settings: Settings = Depends(get_settings)):
     """Get current application settings (non-sensitive data only)."""
+    logger = get_logger("app.endpoint")
+    
     with tracer.start_as_current_span("get_settings"):
         response_data = {
             "app_name": current_settings.app_name,
@@ -100,4 +111,11 @@ def get_app_settings(current_settings: Settings = Depends(get_settings)):
             "log_level": current_settings.log_level,
             "otel_service_name": current_settings.otel_service_name,
         }
+        
+        # Simple business logic logging - event_type from middleware
+        logger.info("Settings retrieved",
+                   environment=current_settings.environment,
+                   debug=current_settings.debug)
+        
         return response_data
+
